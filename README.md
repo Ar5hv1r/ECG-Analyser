@@ -1,3 +1,5 @@
+Note: This project is currently being adapted by Arshvir Talewar as part of my university project. All relevant licenses and documentation will be left in this repository
+
 # Predicting age from the electrocardiogram and its usage as a mortality predictor
 
 Scripts and modules for training and testing deep neural networks for ECG automatic classification.
