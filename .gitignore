@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# csv extensions
+*.csv
+
+# hdf5 extensions
+*.hdf5
+
 # Distribution / packaging
 .Python
 build/
