@@ -6,6 +6,7 @@ import numpy as np
 import argparse
 from datasets import get_train_and_val_loaders
 from model import get_model
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train neural network')
@@ -25,16 +26,17 @@ if __name__ == "__main__":
     criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
+    # store losses
+    train_losses = []
+    val_losses = []
+
     for epoch in range(args.epochs):
         model.train()
         running_loss = 0.0
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(device, dtype=torch.float32)
-
             #debug
             #print(f"Train Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
-
-
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels.float())
@@ -43,6 +45,7 @@ if __name__ == "__main__":
             running_loss = loss.item() * inputs.size(0)
         
         epoch_loss = running_loss / len(train_loader.dataset)
+        train_losses.append(epoch_loss)
         print(f'Epoch {epoch + 1}/{args.epochs}, Loss: {epoch_loss:.4f}')
 
         model.eval()
@@ -58,8 +61,19 @@ if __name__ == "__main__":
                 val_running_loss += loss.item() * inputs.size(0)
         
         val_epoch_loss = val_running_loss / len(valid_loader.dataset)
+        val_losses.append(val_epoch_loss)
         print(f'Validation Loss: {val_epoch_loss:.4f}')
 
     print("End of Training.")
     torch.save(model.state_dict(), 'final_model.pth')
+
+    # plot training and validation loss
+    plt.figure(figsize=(10,5))
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss over Epochs')
+    plt.legend()
+    plt.show()
 
