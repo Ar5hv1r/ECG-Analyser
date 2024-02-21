@@ -22,14 +22,19 @@ if __name__ == "__main__":
     train_loader, valid_loader = get_train_and_val_loaders(args.path_to_hdf5, args.path_to_csv, val_split=args.val_split, batch_size=args.batch_size)
 
     model = get_model(n_classes=6).to(device)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     for epoch in range(args.epochs):
         model.train()
         running_loss = 0.0
         for inputs, labels in train_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
+            inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(device, dtype=torch.float32)
+
+            #debug
+            #print(f"Train Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
+
+
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels.float())
@@ -44,6 +49,10 @@ if __name__ == "__main__":
         val_running_loss = 0.0
         with torch.no_grad():
             for inputs, labels in valid_loader:
+                inputs = inputs.to(device, dtype=torch.float32)
+                labels = labels.to(device, dtype=torch.float32)
+                #debug
+                #print(f"Validation Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
                 outputs = model(inputs)
                 loss = criterion(outputs, labels.float())
                 val_running_loss += loss.item() * inputs.size(0)

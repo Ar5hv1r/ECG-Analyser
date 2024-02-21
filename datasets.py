@@ -23,7 +23,7 @@ class ECGDataset(Dataset):
     def __getitem__(self, idx):
         idx = self.start_idx + idx
         with h5py.File(self.path_to_hdf5, "r") as f:
-            x = np.array(f[self.hdf5_dset][idx])
+            x = np.array(f[self.hdf5_dset][idx]).astype(np.float32) # cast to float32
 
         if self.labels is not None:
             y = np.array(self.labels[idx])

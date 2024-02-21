@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+
 class ResidualUnit(nn.Module):
     def __init__(self, n_filters_in, n_filters_out, kernel_size=17, stride=1, dropout=0.2, activation_function=nn.ReLU):
         super(ResidualUnit, self).__init__()
@@ -43,7 +44,7 @@ class ECGNet(nn.Module):
     def __init__(self, n_classes):
         super(ECGNet, self).__init__()
         self.layer1 = nn.Sequential (
-            nn.Conv1d(12, 64, kernel_size=16, stride=1, padding=8, bias=False), 
+            nn.Conv1d(4096, 64, kernel_size=16, stride=1, padding=8, bias=False), 
             nn.BatchNorm1d(64),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
@@ -55,7 +56,7 @@ class ECGNet(nn.Module):
         self.residual4 = ResidualUnit(256, 320, dropout=0.2)
 
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(320, n_classes)
+        self.fc = nn.Linear(2240, n_classes)
     
     def forward(self, x):
         x = self.layer1(x)
@@ -64,6 +65,10 @@ class ECGNet(nn.Module):
         x = self.residual3(x)
         x = self.residual4(x)
         x = self.flatten(x)
+
+        #debug
+        #print(x.size())
+
         x = self.fc(x)
 
         return x
