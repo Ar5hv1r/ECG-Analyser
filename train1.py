@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument('--val_split', type=float, default=0.02, help='validation split ratio')
     parser.add_argument('--batch_size', type=int, default=64, help='training batch size')
     parser.add_argument('--epochs', type=int, default=70, help='number of training epochs')
-    parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
