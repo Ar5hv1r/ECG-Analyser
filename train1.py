@@ -8,6 +8,15 @@ from datasets import get_train_and_val_loaders
 from model import get_model
 import matplotlib.pyplot as plt
 
+SEED = 42
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)  # if using multi-GPU.
+np.random.seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train neural network')
     # define command line args
@@ -19,7 +28,7 @@ if __name__ == "__main__":
                         default=0.02, help='validation split ratio')
     parser.add_argument('--batch_size', type=int,
                         default=64, help='training batch size')
-    parser.add_argument('--epochs', type=int, default=70,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of training epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     args = parser.parse_args()
@@ -34,6 +43,8 @@ if __name__ == "__main__":
     model = get_model(n_classes=6).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.01, patience=10, verbose=True)
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1) # controls learning rate
 
     # store losses
     train_losses = []
@@ -53,7 +64,8 @@ if __name__ == "__main__":
             loss = criterion(outputs, labels.float())
             loss.backward()
             optimizer.step()
-            running_loss = loss.item() * inputs.size(0)
+            
+            running_loss += loss.item() * inputs.size(0)
 
         # calculate and store epoch loss for training
         epoch_loss = running_loss / len(train_loader.dataset)
@@ -75,6 +87,7 @@ if __name__ == "__main__":
 
         # calculate and store epoch loss for validation
         val_epoch_loss = val_running_loss / len(valid_loader.dataset)
+        scheduler.step(val_epoch_loss)
         val_losses.append(val_epoch_loss)
         print(f'Validation Loss: {val_epoch_loss:.4f}')
 
