@@ -42,18 +42,22 @@ if __name__ == "__main__":
     # initialise model, loss function, optimizer
     model = get_model(n_classes=6).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.01, patience=10, verbose=True)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.001) #l2 regularisation (weight decay)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=10, verbose=True)
     #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1) # controls learning rate
 
     # store losses
     train_losses = []
     val_losses = []
 
+    # L1 Regularisation
+    #lambda_l1 = 0.001
+
     # training loop
     for epoch in range(args.epochs):
         model.train()
         running_loss = 0.0
+        #l1_loss = 0.0
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(
                 device, dtype=torch.float32)
@@ -62,6 +66,12 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels.float())
+
+            # l1 loss calcs
+            #l1_loss = sum(p.abs().sum() for p in model.parameters())
+            # Add the L1 loss to the BCE loss
+            #loss += lambda_l1 * l1_loss
+
             loss.backward()
             optimizer.step()
             
