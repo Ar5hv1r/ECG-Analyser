@@ -37,7 +37,9 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_loader, valid_loader = get_train_and_val_loaders(
-        args.path_to_hdf5, args.path_to_csv, val_split=args.val_split, batch_size=args.batch_size)
+    args.path_to_hdf5, args.path_to_csv, hdf5_filename="exams_part17.hdf5", 
+    subset_size=100, 
+    batch_size=args.batch_size)
 
     # initialise model, loss function, optimizer
     model = get_model(n_classes=6).to(device)
