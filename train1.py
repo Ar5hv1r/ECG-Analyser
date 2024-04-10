@@ -28,23 +28,39 @@ if __name__ == "__main__":
                         default=0.02, help='validation split ratio')
     parser.add_argument('--batch_size', type=int,
                         default=64, help='training batch size')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=50,
                         help='number of training epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     args = parser.parse_args()
 
     # set up device (CPU/GPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+ 
     train_loader, valid_loader = get_train_and_val_loaders(
-    args.path_to_hdf5, args.path_to_csv, hdf5_filename="exams_part17.hdf5", 
-    subset_size=100, 
-    batch_size=args.batch_size)
+    path_to_hdf5=args.path_to_hdf5,
+    path_to_csv=args.path_to_csv,
+    hdf5_filename='exams_part17.hdf5',
+    batch_size=args.batch_size,
+    val_split=args.val_split,
+)
+
+#     train_loader, valid_loader = get_train_and_val_loaders(
+#         args.path_to_hdf5, 
+#         args.path_to_csv, 
+#         hdf5_filename=hdf5_filename, 
+#         subset_size=100,  # Adjust these values as necessary
+#         batch_size=args.batch_size, 
+#         val_split=args.val_split
+# )
+    # train_loader, valid_loader = get_train_and_val_loaders(
+    # args.path_to_hdf5, args.path_to_csv,
+    # subset_size=100, 
+    # batch_size=args.batch_size)
 
     # initialise model, loss function, optimizer
     model = get_model(n_classes=6).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.001) #l2 regularisation (weight decay)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.01) #l2 regularisation (weight decay)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=10, verbose=True)
     #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1) # controls learning rate
 
@@ -54,6 +70,9 @@ if __name__ == "__main__":
 
     # L1 Regularisation
     #lambda_l1 = 0.001
+    print(f"Training set length: {len(train_loader.dataset)}")
+    print(f"Validation set length: {len(valid_loader.dataset)}")
+
 
     # training loop
     for epoch in range(args.epochs):

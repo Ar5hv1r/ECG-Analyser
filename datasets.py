@@ -5,60 +5,69 @@ import numpy as np
 import os
 
 class ECGDataset(Dataset):
-    def __init__(self, path_to_hdf5, path_to_csv, hdf5_filename="exams_part17.hdf5", subset_size=None, start_idx=0, end_idx=None):
-        self.path_to_hdf5 = path_to_hdf5
-        self.hdf5_filename = hdf5_filename # Specify the HDF5 filename you want to load
-        self.labels_df = pd.read_csv(path_to_csv)
-        # Filter the DataFrame to include only rows corresponding to the specified HDF5 file
-        self.labels_df = self.labels_df[self.labels_df['trace_file'] == self.hdf5_filename]
-        self.labels = self.labels_df[['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']].values.astype(float)
-
-        if subset_size is not None:
-            self.labels_df = self.labels_df.sample(n=subset_size, random_state=42)
-            self.labels = self.labels_df[['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']].values.astype(float)
+    def __init__(self, path_to_hdf5, path_to_csv, start_idx=0, end_idx=None):
+        """
+        Initializes the ECG dataset.
         
+        :param path_to_hdf5: Path to the directory containing HDF5 files.
+        :param path_to_csv: Path to the CSV file containing metadata.
+        :param subset_size: If specified, limits the number of records loaded.
+        :param start_idx: Starting index for slicing the dataset.
+        :param end_idx: Ending index for slicing the dataset.
+        """
+        self.path_to_hdf5 = path_to_hdf5
+        all_labels = pd.read_csv(path_to_csv)
 
-        if end_idx is None:
-            end_idx = len(self.labels_df)
-
+        self.labels = all_labels[all_labels['trace_file']=='exams_part17.hdf5']
+        
         self.start_idx = start_idx
-        self.end_idx = end_idx
+        self.end_idx = end_idx if end_idx is not None else len(self.labels)
 
     def __len__(self):
         return self.end_idx - self.start_idx
 
     def __getitem__(self, idx):
-        current_exam_id = self.labels_df.iloc[idx]['exam_id']
+        """
+        Retrieves the ECG tracing and corresponding labels for a given index.
+        """
+        # if idx < self.start_idx or idx >= self.end_idx:
+        #     raise IndexError("Index out of bound")
+        if idx < 0 or idx >= len(self.labels):
+            print(f"Requested idx: {idx}, but dataset size is: {len(self.labels)}")
+            raise IndexError("Index out of bound")
         
-        # Use the specified HDF5 file instead of using the filename from the CSV
-        full_hdf5_path = os.path.join(self.path_to_hdf5, self.hdf5_filename)
-        
-        with h5py.File(full_hdf5_path, "r") as hdf5_file:
+        actual_idx = idx + self.start_idx
+        record = self.labels.iloc[actual_idx]
+        hdf5_file_name = record['trace_file']
+        exam_id = record['exam_id']
+
+        with h5py.File(os.path.join(self.path_to_hdf5, hdf5_file_name), 'r') as hdf5_file:
             exam_ids = np.array(hdf5_file['exam_id'])
-            tracings = np.array(hdf5_file['tracings'])
-            
-            exam_index = np.where(exam_ids == current_exam_id)[0][0]
-            x = tracings[exam_index]
+            exam_index = np.where(exam_ids == exam_id)[0][0]
+            tracing = hdf5_file['tracings'][exam_index, :, :]
         
-        y = self.labels[idx]
-        #print(f'x: {len(x)}, y: {len(y)}')
-        return x, y
+        y = record[['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']].astype(int).values
+        return tracing, y
 
-
-
-# create DataLoader instances for training and validation sets
-
-def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename="exams_part17.hdf5", subset_size=100, batch_size=8, val_split=0.02):
+def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename, batch_size=8, val_split=0.02):
+    """
+    Prepares training and validation DataLoader instances.
+    
+    :param path_to_hdf5: Path to the directory containing HDF5 files.
+    :param path_to_csv: Path to the CSV file containing metadata.
+    :param hdf5_filename: The filename of the HDF5 file for filtering.
+    :param batch_size: Batch size for the DataLoader.
+    :param val_split: Ratio of the dataset to be used for validation.
+    :param subset_size: If specified, limits the number of records loaded.
+    """
     labels = pd.read_csv(path_to_csv)
-    # Filter labels for the specific HDF5 file, if necessary
-    labels = labels[labels['trace_file'] == hdf5_filename]
-    n_samples = len(labels)
-    print(f'Labels: {n_samples}')
-    n_train = int(n_samples * (1 - val_split))
-    print(f'n_train: {n_train}')
+    filtered_labels = labels[labels['trace_file'] == hdf5_filename]
 
-    train_dataset = ECGDataset(path_to_hdf5, path_to_csv, hdf5_filename=hdf5_filename, end_idx=n_train)
-    valid_dataset = ECGDataset(path_to_hdf5, path_to_csv, hdf5_filename=hdf5_filename, start_idx=n_train)
+    n_samples = len(filtered_labels)
+    n_train = int(n_samples * (1 - val_split))
+
+    train_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=0, end_idx=n_train)
+    valid_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=n_train, end_idx=n_samples)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
