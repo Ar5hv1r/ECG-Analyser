@@ -5,7 +5,7 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import argparse
 from datasets import get_train_and_val_loaders
-from model import get_model
+from model import get_transformer_model
 import matplotlib.pyplot as plt
 
 SEED = 42
@@ -58,7 +58,15 @@ if __name__ == "__main__":
     # batch_size=args.batch_size)
 
     # initialise model, loss function, optimizer
-    model = get_model(n_classes=6).to(device)
+    #model = get_model(n_classes=6).to(device)
+    n_classes = 6  # number of output classes
+    ninp = 512  # embedding dimension (size of each input token)
+    nhead = 8  # number of heads in the multiheadattention models
+    nhid = 2048  # dimension of the feedforward network model (hidden layer size)
+    nlayers = 4  # number of sub-encoder-layers in the transformer model
+    dropout = 0.5  # dropout rate
+
+    model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.01) #l2 regularisation (weight decay)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=10, verbose=True)
@@ -82,10 +90,13 @@ if __name__ == "__main__":
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(
                 device, dtype=torch.float32)
+            inputs = inputs.permute(1, 0, 2)
+            src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device) #transformer modelling
             # debug
             # print(f"Train Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
             optimizer.zero_grad()
-            outputs = model(inputs)
+            outputs = model(inputs, src_mask)
+            #outputs = model(inputs)
             loss = criterion(outputs, labels.float())
 
             # l1 loss calcs
@@ -109,10 +120,12 @@ if __name__ == "__main__":
         with torch.no_grad():
             for inputs, labels in valid_loader:
                 inputs = inputs.to(device, dtype=torch.float32)
+                inputs = inputs.permute(1, 0, 2)  # Reshape for the Transformer
+                src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device)
+        
                 labels = labels.to(device, dtype=torch.float32)
-                # debug
-                # print(f"Validation Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
-                outputs = model(inputs)
+
+                outputs = model(inputs, src_mask)
                 loss = criterion(outputs, labels.float())
                 val_running_loss += loss.item() * inputs.size(0)
 
