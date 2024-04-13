@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import math
-
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -11,7 +11,7 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        self.register_buffer('pe', pe)  # Ensure this is uniquely named and not set elsewhere
 
     def forward(self, x):
         x = x + self.pe[:x.size(0), :]
@@ -20,14 +20,13 @@ class PositionalEncoding(nn.Module):
 class TransformerModel(nn.Module):
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, n_classes, dropout=0.5):
         super(TransformerModel, self).__init__()
-        from torch.nn import TransformerEncoder, TransformerEncoderLayer
         self.model_type = 'Transformer'
         self.pos_encoder = PositionalEncoding(ninp)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.encoder = nn.Linear(4096, ninp)
+        self.encoder = nn.Linear(12, ninp)  # Assuming input feature size of 12
         self.ninp = ninp
-        self.decoder = nn.Linear(ninp, n_classes)
+        self.decoder = nn.Linear(ninp, n_classes)  # Decoding to n_classes
 
         self.init_weights()
 
@@ -43,18 +42,21 @@ class TransformerModel(nn.Module):
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src, src_mask):
-        src = self.encoder(src) * math.sqrt(self.ninp)
-        src = self.pos_encoder(src)
+        src = self.encoder(src)  # Encode input features to embeddings
+        src = src * math.sqrt(self.ninp)
+        src = self.pos_encoder(src)  # Apply positional encoding
         output = self.transformer_encoder(src, src_mask)
         output = self.decoder(output)
+        output = output.mean(dim=0)  # Pool over the sequence length for sequence classification
         return output
 
 # Helper function to instantiate the model
 def get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout):
-    ntoken = ninp  # the size of vocabulary
+    ntoken = ninp  # the size of vocabulary (not actually used since we're encoding directly to embeddings)
     model = TransformerModel(ntoken, ninp, nhead, nhid, nlayers, n_classes, dropout)
     return model
 
+####### CUSTOM ECG MODEL #######
 # import torch
 # import torch.nn as nn
 # import torch.nn.functional as F

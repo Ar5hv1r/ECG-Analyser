@@ -7,6 +7,8 @@ import argparse
 from datasets import get_train_and_val_loaders
 from model import get_transformer_model
 import matplotlib.pyplot as plt
+from torch.cuda.amp import autocast, GradScaler
+
 
 SEED = 42
 torch.manual_seed(SEED)
@@ -15,6 +17,7 @@ torch.cuda.manual_seed_all(SEED)  # if using multi-GPU.
 np.random.seed(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+scaler = GradScaler()
 
 
 if __name__ == "__main__":
@@ -69,7 +72,7 @@ if __name__ == "__main__":
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.01) #l2 regularisation (weight decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=10, verbose=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=5, verbose=True)
     #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1) # controls learning rate
 
     # store losses
@@ -90,22 +93,31 @@ if __name__ == "__main__":
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(
                 device, dtype=torch.float32)
+            batch_size, seq_len, features = inputs.shape
+            #print(f'Input Shape: {inputs.shape}')
             inputs = inputs.permute(1, 0, 2)
             src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device) #transformer modelling
             # debug
             # print(f"Train Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
             optimizer.zero_grad()
-            outputs = model(inputs, src_mask)
-            #outputs = model(inputs)
-            loss = criterion(outputs, labels.float())
+            with autocast():
+                outputs = model(inputs, src_mask)
+                loss = criterion(outputs, labels.float())
+            #outputs = model(inputs, src_mask)
+            #print(f'Output Shape: {outputs.shape}')
+            #outputs = outputs[-1, :, :]
+            #outputs = outputs.mean(dim=0)
+                loss = criterion(outputs, labels.float())
 
             # l1 loss calcs
             #l1_loss = sum(p.abs().sum() for p in model.parameters())
             # Add the L1 loss to the BCE loss
             #loss += lambda_l1 * l1_loss
-
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            #loss.backward()
+            #optimizer.step()
             
             running_loss += loss.item() * inputs.size(0)
 
@@ -117,7 +129,7 @@ if __name__ == "__main__":
         # validation loop
         model.eval()
         val_running_loss = 0.0
-        with torch.no_grad():
+        with torch.no_grad(), autocast():
             for inputs, labels in valid_loader:
                 inputs = inputs.to(device, dtype=torch.float32)
                 inputs = inputs.permute(1, 0, 2)  # Reshape for the Transformer
