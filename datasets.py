@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 class ECGDataset(Dataset):
-    def __init__(self, path_to_hdf5, path_to_csv, start_idx=0, end_idx=None):
+    def __init__(self, path_to_hdf5, path_to_csv, start_idx=0, end_idx=None, subset_size=None):
         """
         Initializes the ECG dataset.
         
@@ -20,6 +20,9 @@ class ECGDataset(Dataset):
 
         self.labels = all_labels[all_labels['trace_file']=='exams_part17.hdf5']
         
+        if subset_size is not None:
+            self.labels = self.labels.sample(n=subset_size, random_state=42)  # Subsampling with random state for reproducibility
+
         self.start_idx = start_idx
         self.end_idx = end_idx if end_idx is not None else len(self.labels)
 
@@ -49,7 +52,7 @@ class ECGDataset(Dataset):
         y = record[['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']].astype(int).values
         return tracing, y
 
-def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename, batch_size=8, val_split=0.02):
+def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename, batch_size=8, val_split=0.02, subset_size=None):
     """
     Prepares training and validation DataLoader instances.
     
@@ -63,11 +66,14 @@ def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename, batch_si
     labels = pd.read_csv(path_to_csv)
     filtered_labels = labels[labels['trace_file'] == hdf5_filename]
 
+    if subset_size is not None:
+        filtered_labels = filtered_labels.sample(n=subset_size, random_state=42)  # Again, for reproducibility
+
     n_samples = len(filtered_labels)
     n_train = int(n_samples * (1 - val_split))
 
-    train_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=0, end_idx=n_train)
-    valid_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=n_train, end_idx=n_samples)
+    train_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=0, end_idx=n_train, subset_size=subset_size)
+    valid_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=n_train, end_idx=n_samples, subset_size=subset_size)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)

@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=50,
                         help='number of training epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--subset_size', type=int, default=None, help='Optional size of the subset of data to use for faster iterations')
     args = parser.parse_args()
 
     # set up device (CPU/GPU)
@@ -45,20 +46,8 @@ if __name__ == "__main__":
     hdf5_filename='exams_part17.hdf5',
     batch_size=args.batch_size,
     val_split=args.val_split,
+    subset_size=args.subset_size
 )
-
-#     train_loader, valid_loader = get_train_and_val_loaders(
-#         args.path_to_hdf5, 
-#         args.path_to_csv, 
-#         hdf5_filename=hdf5_filename, 
-#         subset_size=100,  # Adjust these values as necessary
-#         batch_size=args.batch_size, 
-#         val_split=args.val_split
-# )
-    # train_loader, valid_loader = get_train_and_val_loaders(
-    # args.path_to_hdf5, args.path_to_csv,
-    # subset_size=100, 
-    # batch_size=args.batch_size)
 
     # initialise model, loss function, optimizer
     #model = get_model(n_classes=6).to(device)
