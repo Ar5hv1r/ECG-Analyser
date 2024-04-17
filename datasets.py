@@ -75,7 +75,7 @@ def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename, batch_si
     train_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=0, end_idx=n_train, subset_size=subset_size)
     valid_dataset = ECGDataset(path_to_hdf5, path_to_csv, start_idx=n_train, end_idx=n_samples, subset_size=subset_size)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=6)
+    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=6)
 
     return train_loader, valid_loader

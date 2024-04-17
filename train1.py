@@ -30,8 +30,8 @@ if __name__ == "__main__":
     parser.add_argument('--val_split', type=float,
                         default=0.02, help='validation split ratio')
     parser.add_argument('--batch_size', type=int,
-                        default=64, help='training batch size')
-    parser.add_argument('--epochs', type=int, default=50,
+                        default=16, help='training batch size')
+    parser.add_argument('--epochs', type=int, default=10,
                         help='number of training epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--subset_size', type=int, default=None, help='Optional size of the subset of data to use for faster iterations')
@@ -56,13 +56,13 @@ if __name__ == "__main__":
     nhead = 8  # number of heads in the multiheadattention models
     nhid = 2048  # dimension of the feedforward network model (hidden layer size)
     nlayers = 4  # number of sub-encoder-layers in the transformer model
-    dropout = 0.5  # dropout rate
+    dropout = 0.1  # dropout rate
 
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.01) #l2 regularisation (weight decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=5, verbose=True)
-    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1) # controls learning rate
+    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=5, verbose=True)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1) # controls learning rate
 
     # store losses
     train_losses = []
@@ -105,6 +105,7 @@ if __name__ == "__main__":
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+            scheduler.step()
             #loss.backward()
             #optimizer.step()
             
@@ -135,7 +136,26 @@ if __name__ == "__main__":
         scheduler.step(val_epoch_loss)
         val_losses.append(val_epoch_loss)
         print(f'Validation Loss: {val_epoch_loss:.4f}')
+        # Create a string of hyperparameters
+    hyperparameters_str = "\nHyperparameters used for training:\n"
+    hyperparameters_str += f"Path to HDF5 dataset: {args.path_to_hdf5}\n"
+    hyperparameters_str += f"Path to CSV annotations: {args.path_to_csv}\n"
+    hyperparameters_str += f"Validation split ratio: {args.val_split}\n"
+    hyperparameters_str += f"Batch size: {args.batch_size}\n"
+    hyperparameters_str += f"Number of epochs: {args.epochs}\n"
+    hyperparameters_str += f"Learning rate: {args.lr}\n"
+    hyperparameters_str += f"n_classes : {n_classes}\n"
+    hyperparameters_str += f"ninp: {ninp}\n"
+    hyperparameters_str += f"nhid: {nhid}\n"
+    hyperparameters_str += f"n_layers: {nlayers}\n"
+    hyperparameters_str += f"dropout: {dropout}\n"
 
+    if args.subset_size is not None:
+        hyperparameters_str += f"Subset size of data: {args.subset_size}\n"
+    else:
+        hyperparameters_str += "Subset size of data: Using all available data\n"
+    
+    print(hyperparameters_str)
     print("End of Training.")
     torch.save(model.state_dict(), 'final_model.pth')
 

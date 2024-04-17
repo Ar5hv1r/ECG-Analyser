@@ -70,7 +70,7 @@ def get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout):
 #         super(ResidualUnit, self).__init__()
 #         # first convolutional layer for batch normalization and activation function
 #         self.conv1 = nn.Conv1d(n_filters_in, n_filters_out, kernel_size,
-#                                stride=stride, padding=kernel_size//2, bias=False)
+#                                stride=stride, padding=kernel_size//2, bias=False)b
 #         self.bn1 = nn.BatchNorm1d(n_filters_out)
 #         self.activation = activation_function()
 
