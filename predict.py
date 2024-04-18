@@ -37,7 +37,7 @@ if __name__ == "__main__":
     n_classes = 6  # number of output classes
     ninp = 512  # embedding dimension (size of each input token)
     nhead = 8  # number of heads in the multiheadattention models
-    nhid = 2048  # dimension of the feedforward network model (hidden layer size)
+    nhid = 1024  # dimension of the feedforward network model (hidden layer size)
     nlayers = 4  # number of sub-encoder-layers in the transformer model
     dropout = 0.1  # dropout rate
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout)

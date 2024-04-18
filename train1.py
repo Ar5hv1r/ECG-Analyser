@@ -8,6 +8,7 @@ from datasets import get_train_and_val_loaders
 from model import get_transformer_model
 import matplotlib.pyplot as plt
 from torch.cuda.amp import autocast, GradScaler
+from torch.optim.lr_scheduler import StepLR
 
 
 SEED = 42
@@ -54,22 +55,21 @@ if __name__ == "__main__":
     n_classes = 6  # number of output classes
     ninp = 512  # embedding dimension (size of each input token)
     nhead = 8  # number of heads in the multiheadattention models
-    nhid = 2048  # dimension of the feedforward network model (hidden layer size)
+    nhid = 1024  # dimension of the feedforward network model (hidden layer size)
     nlayers = 4  # number of sub-encoder-layers in the transformer model
     dropout = 0.1  # dropout rate
 
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.01) #l2 regularisation (weight decay)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr) #l2 regularisation (weight decay)
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=5, verbose=True)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1) # controls learning rate
+    scheduler = StepLR(optimizer, step_size=2, gamma=0.1) # controls learning rate
 
     # store losses
     train_losses = []
     val_losses = []
 
-    # L1 Regularisation
-    #lambda_l1 = 0.001
+
     print(f"Training set length: {len(train_loader.dataset)}")
     print(f"Validation set length: {len(valid_loader.dataset)}")
 
@@ -78,30 +78,20 @@ if __name__ == "__main__":
     for epoch in range(args.epochs):
         model.train()
         running_loss = 0.0
-        #l1_loss = 0.0
+
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(
                 device, dtype=torch.float32)
             batch_size, seq_len, features = inputs.shape
-            #print(f'Input Shape: {inputs.shape}')
+
             inputs = inputs.permute(1, 0, 2)
             src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device) #transformer modelling
-            # debug
-            # print(f"Train Loop - Inputs device: {inputs.device}, Labels device: {labels.device}, Model device: {next(model.parameters()).device}")
+
             optimizer.zero_grad()
             with autocast():
                 outputs = model(inputs, src_mask)
                 loss = criterion(outputs, labels.float())
-            #outputs = model(inputs, src_mask)
-            #print(f'Output Shape: {outputs.shape}')
-            #outputs = outputs[-1, :, :]
-            #outputs = outputs.mean(dim=0)
-                loss = criterion(outputs, labels.float())
 
-            # l1 loss calcs
-            #l1_loss = sum(p.abs().sum() for p in model.parameters())
-            # Add the L1 loss to the BCE loss
-            #loss += lambda_l1 * l1_loss
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -135,7 +125,8 @@ if __name__ == "__main__":
         scheduler.step(val_epoch_loss)
         val_losses.append(val_epoch_loss)
         print(f'Validation Loss: {val_epoch_loss:.4f}')
-        # Create a string of hyperparameters
+
+    # Create a string of hyperparameters
     hyperparameters_str = "\nHyperparameters used for training:\n"
     hyperparameters_str += f"Path to HDF5 dataset: {args.path_to_hdf5}\n"
     hyperparameters_str += f"Path to CSV annotations: {args.path_to_csv}\n"
