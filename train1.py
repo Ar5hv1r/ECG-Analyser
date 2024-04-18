@@ -61,9 +61,10 @@ if __name__ == "__main__":
 
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr) #l2 regularisation (weight decay)
-    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.001, patience=5, verbose=True)
-    scheduler = StepLR(optimizer, step_size=2, gamma=0.1) # controls learning rate
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.01, patience=2)
+    #scheduler = StepLR(optimizer, step_size=2, gamma=0.5) # controls learning rate
 
     # store losses
     train_losses = []
@@ -99,7 +100,7 @@ if __name__ == "__main__":
             #optimizer.step()
             
             running_loss += loss.item() * inputs.size(0)
-        scheduler.step()
+        #scheduler.step()
         # calculate and store epoch loss for training
         epoch_loss = running_loss / len(train_loader.dataset)
         train_losses.append(epoch_loss)
