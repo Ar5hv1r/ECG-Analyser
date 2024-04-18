@@ -49,10 +49,16 @@ class ECGDataset(Dataset):
             exam_index = np.where(exam_ids == exam_id)[0][0]
             tracing = hdf5_file['tracings'][exam_index, :, :]
         
+        # Z-score Normalization: normalize data to have mean=0 and std=1
+        mean = tracing.mean(axis=0)
+        std = tracing.std(axis=0)
+        std[std == 0] = 1  # Avoid division by zero by setting zero standard deviations to 1
+        tracing = (tracing - mean) / std
+
          # Min-Max Normalization with checks for division by zero
-        range = tracing.max(axis=0) - tracing.min(axis=0)
-        range[range == 0] = 1  # Avoid division by zero by setting zero ranges to 1
-        tracing = (tracing - tracing.min(axis=0)) / range
+        # range = tracing.max(axis=0) - tracing.min(axis=0)
+        # range[range == 0] = 1  # Avoid division by zero by setting zero ranges to 1
+        # tracing = (tracing - tracing.min(axis=0)) / range
 
 
         y = record[['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']].astype(int).values
