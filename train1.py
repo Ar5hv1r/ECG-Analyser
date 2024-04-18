@@ -105,12 +105,11 @@ if __name__ == "__main__":
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            scheduler.step()
             #loss.backward()
             #optimizer.step()
             
             running_loss += loss.item() * inputs.size(0)
-
+        scheduler.step()
         # calculate and store epoch loss for training
         epoch_loss = running_loss / len(train_loader.dataset)
         train_losses.append(epoch_loss)

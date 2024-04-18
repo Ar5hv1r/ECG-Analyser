@@ -1,49 +1,33 @@
 import numpy as np
-import torch
-from model import ECGNet
-from torch.utils.data import DataLoader
 
+# Replace 'path_to_predictions.npy' with the actual path to your .npy file
+predictions_file_path = 'prediction.npy'
 
-# Assuming you have a dataset instance for training named 'train_dataset'
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+# Load the predictions
+predictions = np.load(predictions_file_path)
 
-# And for evaluation or testing, assuming you have 'test_dataset'
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+# Print the shape of the predictions to understand its dimensions
+print("Shape of predictions:", predictions.shape)
 
+# Print the predictions
+print("Predictions:\n", predictions)
 
-model = ECGNet(n_classes=6)
-model.load_state_dict(torch.load('final_model.pth', map_location='cuda' if torch.cuda.is_available() else 'cpu'))
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model.to(device)
+# If you want to see a few predictions instead of all, you can slice the array:
+# Print the first 5 predictions
+print("First 5 predictions:\n", predictions[:5])
 
+# If predictions are probabilities and you want to apply a threshold to get binary results:
+threshold = 0.5  # Define a threshold
+binary_predictions = predictions > threshold
 
-def evaluate_accuracy(model, data_loader, device):
-    model.eval()  # Set the model to evaluation mode.
-    correct_predictions = 0
-    total_predictions = 0
-    
-    with torch.no_grad():  # No need to calculate gradients
-        for inputs, labels in data_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
-            outputs = model(inputs)
-            
-            # For binary classification, you might use a threshold, like 0.5, to determine the predicted class
-            # predictions = (outputs.sigmoid() > 0.5).long()  # Assuming binary classification and outputs are logits
-            
-            # For multi-class classification, you find the class with the highest output value
-            _, predictions = torch.max(outputs, 1)
-            
-            total_predictions += labels.size(0)
-            correct_predictions += (predictions == labels).sum().item()
+print("Binary predictions based on threshold of 0.5:\n", binary_predictions[:5])
 
-    accuracy = correct_predictions / total_predictions
-    return accuracy
-model.load_state_dict(torch.load('final_model.pth', map_location=device))
-model.to(device)
-test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
-validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, shuffle=False)
-test_accuracy = evaluate_accuracy(model, test_loader, device)
-print(f"Test Accuracy: {test_accuracy * 100:.2f}%")
+# If you have class labels and want to print predictions with labels for interpretation
+class_labels = ['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']  # Example class labels
 
-validation_accuracy = evaluate_accuracy(model, validation_loader, device)
-print(f"Validation Accuracy: {validation_accuracy * 100:.2f}%")
+# Print out each prediction with its corresponding label
+for i, sample_prediction in enumerate(predictions[:5]):  # Iterate over the first 5 samples
+    print(f"Predictions for sample {i}:")
+    for label, probability in zip(class_labels, sample_prediction):
+        print(f"{label}: {probability:.4f}")
+    print("-" * 30)  # Separator line for clarity
