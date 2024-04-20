@@ -1,3 +1,119 @@
+# import optuna
+# import torch
+# import torch.nn as nn
+# import torch.optim as optim
+# from torch.utils.data import DataLoader
+# from torch.cuda.amp import autocast, GradScaler
+# import numpy as np
+# import argparse
+# from datasets import get_train_and_val_loaders
+# from model import get_transformer_model
+# import matplotlib.pyplot as plt
+# from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+# SEED = 42
+# torch.manual_seed(SEED)
+# torch.cuda.manual_seed(SEED)
+# torch.cuda.manual_seed_all(SEED)  # if using multi-GPU.
+# np.random.seed(SEED)
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
+
+# # File for logging
+# log_file = "trial_results.txt"
+
+# def objective(trial):
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+#     # Define the hyperparameters to be tuned
+#     batch_size = trial.suggest_categorical('batch_size', [16, 24])
+#     lr = trial.suggest_float('lr', 1e-6, 1e-4, log=True)
+#     nhid = trial.suggest_categorical('nhid', [512, 1024])
+#     nlayers = trial.suggest_int('nlayers', 2, 4)
+#     dropout = trial.suggest_float('dropout', 0.1, 0.5)
+
+#     # Data loaders
+#     train_loader, valid_loader = get_train_and_val_loaders(
+#         path_to_hdf5=args.path_to_hdf5,
+#         path_to_csv=args.path_to_csv,
+#         hdf5_filename='exams_part17.hdf5',
+#         batch_size=batch_size,
+#         val_split=args.val_split,
+#         subset_size=args.subset_size
+#     )
+
+#     # Model
+#     n_classes = 6
+#     ninp = 512  # embedding dimension
+#     nhead = 8  # number of heads in the multiheadattention models
+#     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
+#     criterion = nn.BCEWithLogitsLoss().to(device)
+#     optimizer = optim.Adam(model.parameters(), lr=lr)
+#     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.01, patience=2)
+#     scaler = GradScaler()
+
+#     val_losses = []
+
+#     for epoch in range(args.epochs):
+#         model.train()
+#         for inputs, labels in train_loader:
+#             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(device, dtype=torch.float32)
+#             inputs = inputs.permute(1, 0, 2)
+#             src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device)
+
+#             optimizer.zero_grad()
+#             with autocast():
+#                 outputs = model(inputs, src_mask)
+#                 loss = criterion(outputs, labels.float())
+#             scaler.scale(loss).backward()
+#             scaler.step(optimizer)
+#             scaler.update()
+
+#         model.eval()
+#         val_loss = 0.0
+#         with torch.no_grad(), autocast():
+#             for inputs, labels in valid_loader:
+#                 inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(device, dtype=torch.float32)
+#                 inputs = inputs.permute(1, 0, 2)
+#                 src_mask = model.generate_square_subsequent_mask(inputs.size(0)).to(device)
+#                 outputs = model(inputs, src_mask)
+#                 loss = criterion(outputs, labels.float())
+#                 val_loss += loss.item()
+
+#         val_losses.append(val_loss / len(valid_loader))
+#         scheduler.step(val_losses[-1])
+
+#     avg_val_loss = np.mean(val_losses)
+    
+#     # Log the result
+#     with open(log_file, "a") as file:
+#         file.write(f"Trial {trial.number}, Loss: {avg_val_loss}\n")
+    
+#     return avg_val_loss
+
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description='Train neural network')
+#     parser.add_argument('path_to_hdf5', type=str, help='path to hdf5 file containing tracings')
+#     parser.add_argument('path_to_csv', type=str, help='path to csv file containing annotations')
+#     parser.add_argument('--val_split', type=float, default=0.2, help='validation split ratio')
+#     parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
+#     parser.add_argument('--subset_size', type=int, default=None, help='Optional size of the subset of data to use for faster iterations')
+#     args = parser.parse_args()
+
+#     # Create an Optuna study to maximize the objective
+#     study = optuna.create_study(direction='minimize')
+#     study.optimize(objective, n_trials=10)
+
+#     print("Study statistics: ")
+#     print("  Number of finished trials: ", len(study.trials))
+#     print("  Best trial:")
+#     trial = study.best_trial
+#     print(f"    Value: {trial.value}")
+#     print("    Params: ")
+#     for key, value in trial.params.items():
+#         print(f"      {key}: {value}")
+
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,7 +125,7 @@ from model import get_transformer_model
 import matplotlib.pyplot as plt
 from torch.cuda.amp import autocast, GradScaler
 from torch.optim.lr_scheduler import StepLR
-
+from ray import tune
 
 SEED = 42
 torch.manual_seed(SEED)
@@ -29,12 +145,12 @@ if __name__ == "__main__":
     parser.add_argument('path_to_csv', type=str,
                         help='path to csv file containing annotations')
     parser.add_argument('--val_split', type=float,
-                        default=0.02, help='validation split ratio')
+                        default=0.2, help='validation split ratio')
     parser.add_argument('--batch_size', type=int,
-                        default=16, help='training batch size')
-    parser.add_argument('--epochs', type=int, default=10,
+                        default=24, help='training batch size')
+    parser.add_argument('--epochs', type=int, default=50,
                         help='number of training epochs')
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--lr', type=float, default=6.303597746005374e-06, help='learning rate')
     parser.add_argument('--subset_size', type=int, default=None, help='Optional size of the subset of data to use for faster iterations')
     args = parser.parse_args()
 
@@ -55,9 +171,9 @@ if __name__ == "__main__":
     n_classes = 6  # number of output classes
     ninp = 512  # embedding dimension (size of each input token)
     nhead = 8  # number of heads in the multiheadattention models
-    nhid = 1024  # dimension of the feedforward network model (hidden layer size)
-    nlayers = 4  # number of sub-encoder-layers in the transformer model
-    dropout = 0.1  # dropout rate
+    nhid = 512  # dimension of the feedforward network model (hidden layer size)
+    nlayers = 2  # number of sub-encoder-layers in the transformer model
+    dropout = 0.2023326371316407  # dropout rate
 
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout).to(device)
     criterion = nn.BCEWithLogitsLoss().to(device)
@@ -100,9 +216,10 @@ if __name__ == "__main__":
             #optimizer.step()
             
             running_loss += loss.item() * inputs.size(0)
-        #scheduler.step()
+        
         # calculate and store epoch loss for training
         epoch_loss = running_loss / len(train_loader.dataset)
+        scheduler.step(epoch_loss)
         train_losses.append(epoch_loss)
         print(f'Epoch {epoch + 1}/{args.epochs}, Loss: {epoch_loss:.4f}')
 
