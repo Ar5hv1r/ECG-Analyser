@@ -38,8 +38,8 @@ if __name__ == "__main__":
     ninp = 512  # embedding dimension (size of each input token)
     nhead = 8  # number of heads in the multiheadattention models
     nhid = 1024  # dimension of the feedforward network model (hidden layer size)
-    nlayers = 4  # number of sub-encoder-layers in the transformer model
-    dropout = 0.1  # dropout rate
+    nlayers = 3  # number of sub-encoder-layers in the transformer model
+    dropout = 0.23537958833156938  # dropout rate
     model = get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout)
     model.load_state_dict(torch.load(args.path_to_model, map_location=device))
     model.to(device)
