@@ -9,6 +9,9 @@ import argparse
 import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.cuda.amp import autocast, GradScaler
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
+import seaborn as sns
+import pandas as pd
 
 SEED = 42
 torch.manual_seed(SEED)
@@ -36,6 +39,7 @@ def train_model(params, plot=False, save_model=False):
 
     train_losses, val_losses = [], []
 
+
     for epoch in range(args.epochs):
         model.train()
         train_loss = 0.0
@@ -57,6 +61,8 @@ def train_model(params, plot=False, save_model=False):
 
         model.eval()
         val_loss = 0.0
+        val_labels = []
+        val_preds = []
         with torch.no_grad(), autocast():
             for inputs, labels in valid_loader:
                 inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(device, dtype=torch.float32)
@@ -65,9 +71,11 @@ def train_model(params, plot=False, save_model=False):
                 outputs = model(inputs, src_mask)
                 loss = criterion(outputs, labels.float())
                 val_loss += loss.item()
-        
+
         val_losses.append(val_loss / len(valid_loader))
         scheduler.step(val_losses[-1])
+
+
 
     if plot:
         plt.figure(figsize=(10, 5))
@@ -77,7 +85,9 @@ def train_model(params, plot=False, save_model=False):
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
         plt.legend()
+        plt.savefig('loss_plot.png')
         plt.show()
+
     
     if save_model:
         torch.save(model.state_dict(), 'final_model.pth')
@@ -107,8 +117,11 @@ if __name__ == "__main__":
     parser.add_argument('--subset_size', type=int, default=None, help='Optional size of the subset of data to use for faster iterations')
     args = parser.parse_args()
 
-    study = optuna.create_study(direction='minimize')
-    study.optimize(objective, n_trials=1)
+    study = optuna.create_study(direction='minimize', study_name='ECG Analyser', storage="sqlite:///db.sqlite3", load_if_exists=True)
+    study.set_metric_names(["Loss Value"])
+    study.optimize(objective, n_trials=0)
+
+
 
     print("Study statistics: ")
     print("  Number of finished trials: ", len(study.trials))
@@ -121,7 +134,8 @@ if __name__ == "__main__":
 
     # Retrain and plot with best parameters
     best_params = trial.params
-    train_model(best_params, plot=True, save_model=True)
+    #train_model(best_params, plot=True, save_model=True)
+    train_losses, val_losses= train_model(best_params)
 
 
 # import torch
