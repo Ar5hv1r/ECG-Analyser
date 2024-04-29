@@ -59,7 +59,7 @@ if __name__ == "__main__":
     print(f"Output predictions saved to {args.output_file}")
     # Calculate metrics using true labels and predicted probabilities
     # Define a threshold for binary classification
-    threshold = 0.025
+    threshold = 0.5
     binary_predictions = (predictions > threshold).astype(int)
 
     accuracy = accuracy_score(true_labels, binary_predictions)
