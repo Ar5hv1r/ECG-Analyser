@@ -5,15 +5,19 @@ import numpy as np
 import os
 
 class ECGDataset(Dataset):
+    """
+    A PyTorch Dataset class for loading ECG data from HDF5 files based on metadata in CSV format.
+    """
     def __init__(self, path_to_hdf5, path_to_csv, start_idx=0, end_idx=None, subset_size=None):
         """
-        Initializes the ECG dataset.
-        
-        :param path_to_hdf5: Path to the directory containing HDF5 files.
-        :param path_to_csv: Path to the CSV file containing metadata.
-        :param subset_size: If specified, limits the number of records loaded.
-        :param start_idx: Starting index for slicing the dataset.
-        :param end_idx: Ending index for slicing the dataset.
+        Initializes the dataset by specifying the location of HDF5 and CSV files, the index range, and the subset size.
+
+        Args:
+            path_to_hdf5 (str): Path to the directory containing HDF5 files.
+            path_to_csv (str): Path to the CSV file containing metadata.
+            start_idx (int): Starting index for slicing the dataset. Default is 0.
+            end_idx (int, optional): Ending index for slicing the dataset. If None, the entire length is considered.
+            subset_size (int, optional): If specified, randomly selects a subset of the data for faster loading.
         """
         self.path_to_hdf5 = path_to_hdf5
         all_labels = pd.read_csv(path_to_csv)
@@ -27,14 +31,22 @@ class ECGDataset(Dataset):
         self.end_idx = end_idx if end_idx is not None else len(self.labels)
 
     def __len__(self):
+        """Returns the number of items in the dataset."""
         return self.end_idx - self.start_idx
 
     def __getitem__(self, idx):
         """
         Retrieves the ECG tracing and corresponding labels for a given index.
+        
+        Args:
+            idx (int): Index of the data point to retrieve.
+
+        Returns:
+            tuple: A tuple containing the normalized ECG tracing data and its corresponding label vector.
+
+        Raises:
+            IndexError: If the index is out of the defined bounds.
         """
-        # if idx < self.start_idx or idx >= self.end_idx:
-        #     raise IndexError("Index out of bound")
         if idx < 0 or idx >= len(self.labels):
             print(f"Requested idx: {idx}, but dataset size is: {len(self.labels)}")
             raise IndexError("Index out of bound")
@@ -52,34 +64,37 @@ class ECGDataset(Dataset):
         # Z-score Normalization: normalize data to have mean=0 and std=1
         mean = tracing.mean(axis=0)
         std = tracing.std(axis=0)
-        std[std == 0] = 1  # Avoid division by zero by setting zero standard deviations to 1
+        std[std == 0] = 1  # Prevent division by zero
         tracing = (tracing - mean) / std
 
-         # Min-Max Normalization with checks for division by zero
+        # Min-Max Normalization with checks for division by zero
         # range = tracing.max(axis=0) - tracing.min(axis=0)
         # range[range == 0] = 1  # Avoid division by zero by setting zero ranges to 1
         # tracing = (tracing - tracing.min(axis=0)) / range
-
 
         y = record[['1dAVb', 'RBBB', 'LBBB', 'SB', 'ST', 'AF']].astype(int).values
         return tracing, y
 
 def get_train_and_val_loaders(path_to_hdf5, path_to_csv, hdf5_filename, batch_size=8, val_split=0.02, subset_size=None):
     """
-    Prepares training and validation DataLoader instances.
-    
-    :param path_to_hdf5: Path to the directory containing HDF5 files.
-    :param path_to_csv: Path to the CSV file containing metadata.
-    :param hdf5_filename: The filename of the HDF5 file for filtering.
-    :param batch_size: Batch size for the DataLoader.
-    :param val_split: Ratio of the dataset to be used for validation.
-    :param subset_size: If specified, limits the number of records loaded.
+    Prepares and returns DataLoader instances for both training and validation datasets.
+
+    Args:
+        path_to_hdf5 (str): Path to the directory containing HDF5 files.
+        path_to_csv (str): Path to the CSV file containing metadata.
+        hdf5_filename (str): The specific HDF5 file to use for filtering data.
+        batch_size (int): Number of samples per batch.
+        val_split (float): Fraction of the data to reserve for the validation set.
+        subset_size (int, optional): If provided, limits the number of records loaded to a subset.
+
+    Returns:
+        tuple: A tuple containing DataLoader instances for both training and validation datasets.
     """
     labels = pd.read_csv(path_to_csv)
     filtered_labels = labels[labels['trace_file'] == hdf5_filename]
 
     if subset_size is not None:
-        filtered_labels = filtered_labels.sample(n=subset_size, random_state=42)  # Again, for reproducibility
+        filtered_labels = filtered_labels.sample(n=subset_size, random_state=42)  # Sampling for reproducibility
 
     n_samples = len(filtered_labels)
     n_train = int(n_samples * (1 - val_split))

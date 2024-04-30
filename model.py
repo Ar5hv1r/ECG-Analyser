@@ -2,8 +2,19 @@ import torch
 import torch.nn as nn
 import math
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
+
 class PositionalEncoding(nn.Module):
+    """
+    Implements positional encoding as described in "Attention Is All You Need", used in Transformer models.
+    """
     def __init__(self, d_model, max_len=5000):
+        """
+        Initializes the PositionalEncoding module.
+
+        Args:
+            d_model (int): The dimension of the model's output.
+            max_len (int): The maximum length of the input sequences.
+        """
         super(PositionalEncoding, self).__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -11,37 +22,83 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)  # Ensure this is uniquely named and not set elsewhere
+        self.register_buffer('pe', pe)  # This is not a parameter but should be part of the model's state.
 
     def forward(self, x):
+        """
+        Adds positional encoding to input sequence.
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (sequence length, batch size, model dimension).
+
+        Returns:
+            torch.Tensor: Tensor with positional encoding added to input.
+        """
         x = x + self.pe[:x.size(0), :]
         return x
 
 class TransformerModel(nn.Module):
+    """
+    A transformer model which uses an encoder and positional encoding for sequence processing.
+    """
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, n_classes, dropout=0.5):
+        """
+        Initializes the TransformerModel.
+
+        Args:
+            ntoken (int): Number of tokens (size of the vocabulary).
+            ninp (int): Number of input features (model dimensionality).
+            nhead (int): Number of heads in the multi-head attention models.
+            nhid (int): The dimension of the feedforward network model in nn.TransformerEncoder.
+            nlayers (int): The number of nn.TransformerEncoderLayer layers.
+            n_classes (int): Number of classes for the output layer.
+            dropout (float): The dropout value.
+        """
         super(TransformerModel, self).__init__()
         self.model_type = 'Transformer'
         self.pos_encoder = PositionalEncoding(ninp)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.encoder = nn.Linear(12, ninp)  # Assuming input feature size of 12
+        self.encoder = nn.Linear(12, ninp)  # Assumed input feature size is 12
         self.ninp = ninp
-        self.decoder = nn.Linear(ninp, n_classes)  # Decoding to n_classes
+        self.decoder = nn.Linear(ninp, n_classes)  # Output layer to predict n_classes
 
         self.init_weights()
 
     def generate_square_subsequent_mask(self, sz):
+        """
+        Generates a square mask for the sequence. The mask shows which keys have access to which values.
+
+        Args:
+            sz (int): Size of the mask (length of the sequence).
+
+        Returns:
+            torch.Tensor: A mask tensor indicating allowed positions for self-attention.
+        """
         mask = torch.triu(torch.ones(sz, sz), 1)
         mask = mask.masked_fill(mask == 1, float('-inf'))
         return mask
 
     def init_weights(self):
+        """
+        Initializes weights of the Transformer model with uniform distribution.
+        """
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src, src_mask):
+        """
+        Defines the forward pass of the Transformer model.
+
+        Args:
+            src (torch.Tensor): The sequence of embedding tensors.
+            src_mask (torch.Tensor): The mask tensor for the sequence.
+
+        Returns:
+            torch.Tensor: Output tensor of the model.
+        """
         src = self.encoder(src)  # Encode input features to embeddings
         src = src * math.sqrt(self.ninp)
         src = self.pos_encoder(src)  # Apply positional encoding
@@ -50,11 +107,25 @@ class TransformerModel(nn.Module):
         output = output.mean(dim=0)  # Pool over the sequence length for sequence classification
         return output
 
-# Helper function to instantiate the model
 def get_transformer_model(n_classes, ninp, nhead, nhid, nlayers, dropout):
-    ntoken = ninp  # the size of vocabulary (not actually used since we're encoding directly to embeddings)
+    """
+    Helper function to instantiate a Transformer model with specified parameters.
+
+    Args:
+        n_classes (int): Number of target classes.
+        ninp (int): Input dimension (embedding size).
+        nhead (int): Number of attention heads.
+        nhid (int): Dimension of the feedforward network.
+        nlayers (int): Number of encoder layers.
+        dropout (float): Dropout rate.
+
+    Returns:
+        TransformerModel: An instance of the TransformerModel.
+    """
+    ntoken = ninp  # Assuming vocabulary size matches input dimension (not used since direct encoding)
     model = TransformerModel(ntoken, ninp, nhead, nhid, nlayers, n_classes, dropout)
     return model
+
 
 ####### CUSTOM ECG MODEL #######
 # import torch
