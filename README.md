@@ -1,6 +1,3 @@
-Note: This project is currently being adapted by Arshvir Talewar as part of my university project. All relevant licenses and documentation will be left in this repository
-
-
 # Transformer Model for ECG Classification
 
 This project implements a Transformer-based model to classify electrocardiogram (ECG) signals. The repository includes scripts for training the model, loading datasets, making predictions, and evaluating the model's performance.
